@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <ssqtdio.h>
 #include <stdlib.h>
 #include <math.h>
 
