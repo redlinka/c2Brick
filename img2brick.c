@@ -1,4 +1,4 @@
-#include <ssqtdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -204,18 +204,12 @@ int main() {
 
     // an example catalog of bricks
     Brick catalog[] = {
-        { "2x1 Red",     2, 1, 1, {255,   0,   0}, 0.10f, 100 },
-        { "2x1 Green",   2, 1, 1, {  0, 255,   0}, 0.10f, 100 },
-        { "2x1 Blue",    2, 1, 1, {  0,   0, 255}, 0.10f, 100 },
-        { "2x1 Yellow",  2, 1, 1, {255, 255,   0}, 0.10f, 100 },
-        { "2x1 White",   2, 1, 1, {255, 255, 255}, 0.10f, 100 },
-        { "2x1 Black",   2, 1, 1, {  0,   0,   0}, 0.10f, 100 },
-        { "2x1 Red",     1, 1, 1, {255,   0,   0}, 0.10f, 100 },
-        { "2x1 Green",   1, 1, 1, {  0, 255,   0}, 0.10f, 100 },
-        { "2x1 Blue",    1, 1, 1, {  0,   0, 255}, 0.10f, 100 },
-        { "2x1 Yellow",  1, 1, 1, {255, 255,   0}, 0.10f, 100 },
-        { "2x1 White",   1, 1, 1, {255, 255, 255}, 0.10f, 100 },
-        { "2x1 Black",   1, 1, 1, {  0,   0,   0}, 0.10f, 100 },
+        { "1x1 Red",     1, 1, 1, {255,   0,   0}, 0.10f, 100 },
+        { "1x1 Green",   1, 1, 1, {  0, 255,   0}, 0.10f, 100 },
+        { "1x1 Blue",    1, 1, 1, {  0,   0, 255}, 0.10f, 100 },
+        { "1x1 Yellow",  1, 1, 1, {255, 255,   0}, 0.10f, 100 },
+        { "1x1 White",   1, 1, 1, {255, 255, 255}, 0.10f, 100 },
+        { "1x1 Black",   1, 1, 1, {  0,   0,   0}, 0.10f, 100 },
     };
     // calcultaing its length for later use
     int catSize = sizeof(catalog) / sizeof(catalog[0]);
@@ -224,6 +218,14 @@ int main() {
 
     // turning the raw txt image file into an easily usable array
     ColorValues* img = pixelify("image.txt");
+
+    // printing the result of the conversion to ColorValues
+    for (int i = 0; i < width*height; i++) {
+        printf("Pixel %d RGB: %d %d %d\n", i+1, img[i].r, img[i].g, img[i].b);
+    }
+
+    // making the tiling and putting it in a file
+    toBrick_1x1(img, catalog, catSize);
 
     free(img);
 }
