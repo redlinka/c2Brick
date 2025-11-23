@@ -1,9 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+
 
 int width;
 int height;
+int catSize;
+
+
+
+///////////////////////////////////STRUCTURES//////////////////////////////////////
 
 // Making a struct to make color comparison easier
 typedef struct {
@@ -17,7 +24,7 @@ typedef struct {
     char name[32];
     int width;
     int height;
-    int holes;
+    int holes[16];
     ColorValues color;
     float price;
     int number;
@@ -28,6 +35,11 @@ typedef struct {
     int index;
     int diff;
 } BestMatch;
+
+
+
+
+///////////////////////////////////Utils Functions//////////////////////////////////////
 
 // a very needed function that returns the diemsions of the image through pointers
 void getDims(const char* path, int* outWidth, int* outHeight) {
@@ -69,6 +81,27 @@ void getDims(const char* path, int* outWidth, int* outHeight) {
     *outHeight = height;
 }
 
+//turns a hexadecimal value into rgb
+ColorValues hexToRGB(const char *hex) {
+    ColorValues p;
+    sscanf(hex, "%02x%02x%02x", &p.r, &p.g, &p.b);
+    return p;
+}
+
+//this is useful to organize the holes into each bricks
+void parseHoles(const char *str, int *holes) {
+    if (strcmp(str, "-1") == 0) {
+        for (int i = 0; i < 16; i++) holes[i] = -1;
+        return;
+    }
+    int len = strlen(str);
+    int k = 0;
+    for (int i = 0; i < len && k < 16; i++) {
+        holes[k++] = str[i] - '0';
+    }
+    for (; k < 16; k++) holes[k] = -1;
+}
+
 // A function to compare the color diff between a between two entities with ColorValues.
 int compareColors(ColorValues p1, ColorValues p2) {
     return
@@ -77,14 +110,19 @@ int compareColors(ColorValues p1, ColorValues p2) {
          + (p1.b - p2.b) * (p1.b - p2.b);
 }
 
+
+
+
+///////////////////////////////////FORMATTING FUNCTIONS//////////////////////////////////////
+
 // Converts the string image into a proper ColorValues matrix
-ColorValues* pixelify(const char* path) {
+ColorValues* loadImage(const char* path) {
 
     // we open the file
     FILE* image = fopen(path, "r");
     if (!image) {
         perror("Error opening file");
-        return NULL;
+        exit(1);
     }
     
     // this is the format of a "pixel" in the initial file
@@ -95,17 +133,14 @@ ColorValues* pixelify(const char* path) {
     if (!pixels) {
         perror("Memory allocation failed");
         fclose(image);
-        return NULL;
+        exit(1);
     }
 
     // a counter deemed useful to fill in our pixel array
     int count = 0;
     while (fscanf(image, "%6s", hex) == 1) {
-        ColorValues p;
-
         // convert hex string into a proper RGB
-        sscanf(hex, "%02x%02x%02x", &p.r, &p.g, &p.b);
-        pixels[count] = p;
+        pixels[count] = hexToRGB(hex);
         count++;
     }
 
@@ -113,6 +148,60 @@ ColorValues* pixelify(const char* path) {
     fclose(image);
     return pixels;
 }
+
+// loads in the catalog
+Brick* loadCatalog(const char *path, int *outSize) {
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        perror("Error opening catalog file");
+        exit(1);
+    }
+
+    // On lit le nombre de lignes (donc nombre de briques)
+    int n;
+    if (fscanf(f, "%d\n", &n) != 1) {
+        fprintf(stderr, "Invalid catalog file: missing line count\n");
+        exit(1);
+    }
+
+    Brick *catalog = malloc(n * sizeof(Brick));
+    if (!catalog) {
+        perror("Memory allocation failed");
+        exit(1);
+    }
+
+    for (int i = 0; i < n; i++) {
+        int w, h, stock;
+        char holesStr[16];
+        char hex[16];
+        float price;
+
+        if (fscanf(f, " %d , %d , %15[^,] , %15[^,] , %f , %d",
+                   &w, &h, holesStr, hex, &price, &stock) != 6)
+        {
+            fprintf(stderr, "Invalid line %d in catalog\n", i + 1);
+            exit(1);
+        }
+
+        catalog[i].width  = w;
+        catalog[i].height = h;
+        catalog[i].price  = price;
+        catalog[i].number = stock;
+        catalog[i].color  = hexToRGB(hex);
+        parseHoles(holesStr, catalog[i].holes);
+
+        snprintf(catalog[i].name, sizeof(catalog[i].name), "%dx%d/%s", w, h, hex);
+    }
+
+    fclose(f);
+    *outSize = n;
+    return catalog;
+}
+
+
+
+///////////////////////////////////TILING ALGORYTHMS//////////////////////////////////////
 
 // compares the color of the pixel to the one of every brick and returns the index of the best match
 BestMatch findBestBrick(ColorValues pixel, Brick* catalog, int catSize) {
@@ -200,29 +289,22 @@ int main() {
     //   FFFFFF FFFFFF FFFFFF\n
     //   FFFFFF FFFFFF FFFFFF\n
 
-    //  Waiting for feedback about this format.
+    // catalog.txt is in the format :
 
-    // an example catalog of bricks
-    Brick catalog[] = {
-        { "1x1 Red",     1, 1, 1, {255,   0,   0}, 0.10f, 100 },
-        { "1x1 Green",   1, 1, 1, {  0, 255,   0}, 0.10f, 100 },
-        { "1x1 Blue",    1, 1, 1, {  0,   0, 255}, 0.10f, 100 },
-        { "1x1 Yellow",  1, 1, 1, {255, 255,   0}, 0.10f, 100 },
-        { "1x1 White",   1, 1, 1, {255, 255, 255}, 0.10f, 100 },
-        { "1x1 Black",   1, 1, 1, {  0,   0,   0}, 0.10f, 100 },
-    };
-    // calcultaing its length for later use
-    int catSize = sizeof(catalog) / sizeof(catalog[0]);
+    //   6 (number of lines)
+    //   1, 1, -1, ff0000, 0.10, 100
+    //   1, 1, -1, 00ff00, 0.10, 100
+    //   1, 1, -1, 0000ff, 0.10, 100
+    //   1, 1, -1, ffff00, 0.10, 100
+    //   1, 1, -1, ffffff, 0.10, 100
+    //   1, 1, -1, 000000, 0.10, 100
 
+
+
+    // prepare the inputs
+    Brick *catalog = loadCatalog("catalog.txt", &catSize);
     getDims("image.txt", &width, &height);
-
-    // turning the raw txt image file into an easily usable array
-    ColorValues* img = pixelify("image.txt");
-
-    // printing the result of the conversion to ColorValues
-    for (int i = 0; i < width*height; i++) {
-        printf("Pixel %d RGB: %d %d %d\n", i+1, img[i].r, img[i].g, img[i].b);
-    }
+    ColorValues* img = loadImage("image.txt");
 
     // making the tiling and putting it in a file
     toBrick_1x1(img, catalog, catSize);

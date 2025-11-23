@@ -1,6 +1,6 @@
-1x1 Black 1x1 Black 1x1 Red 1x1 Red 1x1 Red 1x1 Red 1x1 Red 1x1 Red 1x1 Green 1x1 Green 1x1 Red 1x1 Red
-1x1 Black 1x1 Black 1x1 Black 1x1 Blue 1x1 Red 1x1 Red 1x1 Blue 1x1 Green 1x1 Green 1x1 Blue 1x1 Green 1x1 Red
-1x1 Black 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Red 1x1 Red 1x1 Red
-1x1 Red 1x1 Red 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Blue 1x1 Red 1x1 Red 1x1 Black 1x1 Black
-1x1 Red 1x1 Red 1x1 Red 1x1 Green 1x1 Blue 1x1 Green 1x1 Green 1x1 Blue 1x1 Green 1x1 Black 1x1 Black 1x1 Black
-1x1 Red 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Green 1x1 Black
+1x1/000000 1x1/000000 1x1/ff0000 1x1/ff0000 1x1/ff0000 1x1/ff0000 1x1/ff0000 1x1/ff0000 1x1/00ff00 1x1/00ff00 1x1/ff0000 1x1/ff0000
+1x1/000000 1x1/000000 1x1/000000 1x1/0000ff 1x1/ff0000 1x1/ff0000 1x1/0000ff 1x1/00ff00 1x1/00ff00 1x1/0000ff 1x1/00ff00 1x1/ff0000
+1x1/000000 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/ff0000 1x1/ff0000 1x1/ff0000
+1x1/ff0000 1x1/ff0000 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/0000ff 1x1/ff0000 1x1/ff0000 1x1/000000 1x1/000000
+1x1/ff0000 1x1/ff0000 1x1/ff0000 1x1/00ff00 1x1/0000ff 1x1/00ff00 1x1/00ff00 1x1/0000ff 1x1/00ff00 1x1/000000 1x1/000000 1x1/000000
+1x1/ff0000 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/00ff00 1x1/000000
