@@ -3,7 +3,9 @@
 #include <string.h>
 #include <math.h>
 
-
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#define NULL_PIXEL ((ColorValues){.r = -1, .g = -1, .b = -1})
 int width;
 int height;
 int catSize;
@@ -37,9 +39,7 @@ typedef struct {
 } BestMatch;
 
 
-
-
-///////////////////////////////////Utils Functions//////////////////////////////////////
+///////////////////////////////////UTILS FUNCTIONS//////////////////////////////////////
 
 // a very needed function that returns the diemsions of the image through pointers
 void getDims(const char* path, int* outWidth, int* outHeight) {
@@ -110,7 +110,29 @@ int compareColors(ColorValues p1, ColorValues p2) {
          + (p1.b - p2.b) * (p1.b - p2.b);
 }
 
+//a function that returns the closest power of 2 bigger than the argument
+int biggestPow2(int n) {
+    int p = 0;
+    while (pow(2,p) < n) {
+        p++;
+    }
+    return pow(2,p);
+}
 
+void showCanvas(ColorValues* pixels, int canvasDims) {
+    for (int y = 0; y < canvasDims; y++) {
+        for (int x = 0; x < canvasDims; x++) {
+            ColorValues c = pixels[y * canvasDims + x];
+
+            if (c.r < 0) {
+                printf("NULL    ");
+            } else {
+                printf("#%02X%02X%02X ", c.r, c.g, c.b);
+            }
+        }
+        printf("\n");
+    }
+}
 
 
 ///////////////////////////////////FORMATTING FUNCTIONS//////////////////////////////////////
@@ -118,33 +140,47 @@ int compareColors(ColorValues p1, ColorValues p2) {
 // Converts the string image into a proper ColorValues matrix
 ColorValues* loadImage(const char* path) {
 
+    int canvasDims = biggestPow2(MAX(width, height)); //canvas size for the padding
+    char hex[7]; // this is the format of a "pixel" in the initial file
+
     // we open the file
     FILE* image = fopen(path, "r");
     if (!image) {
         perror("Error opening file");
         exit(1);
     }
-    
-    // this is the format of a "pixel" in the initial file
-    char hex[7];
 
-    // allocate memory dynamically, still assuming we were given the dimensions of the image.
-    ColorValues* pixels = malloc((width * height) * sizeof(ColorValues));
-    if (!pixels) {
+    //we setup the containers of our image
+    ColorValues* temp = malloc(width * height * sizeof(ColorValues));
+    ColorValues* pixels = calloc((canvasDims * canvasDims), sizeof(ColorValues));
+    if (!temp || !pixels) {
         perror("Memory allocation failed");
         fclose(image);
         exit(1);
     }
 
-    // a counter deemed useful to fill in our pixel array
-    int count = 0;
-    while (fscanf(image, "%6s", hex) == 1) {
-        // convert hex string into a proper RGB
-        pixels[count] = hexToRGB(hex);
-        count++;
+    // we first transfer the image into temp
+    int i = 0;
+    while (fscanf(image, "%6s", hex) == 1 && i < width * height) {
+        temp[i++] = hexToRGB(hex);
     }
 
-    // Closing the file
+    // we fill the canvas with nuill pixels to prepare it for the quadtree
+    for (int i = 0; i < canvasDims * canvasDims; i++){
+        pixels[i] = NULL_PIXEL;
+    }
+
+    // we transfer temp into the canvas
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            pixels[y * canvasDims + x] = temp[y * width + x];
+        }
+    }
+
+    //showCanvas(pixels, canvasDims);  //if you wish to visualize the result.
+
+    // Closing the file and freeing the memory
+    free(temp);
     fclose(image);
     return pixels;
 }
@@ -253,7 +289,7 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
     double quality = (1.0 - (totalDiff / maxDiff)) * 100.0; // the final quality of the tiler given in percentage
 
 
-    printf("Tiled image saved to: %s, the lego recreation is %lf%% accurate, the price is %.2f€.", "tiled_image.txt", quality, totalPrice);
+    printf("Tiled image saved to: %s, the lego recreation is %lf%% accurate, the price is %.2f€.\n", "tiled_image.txt", quality, totalPrice);
 
     //passing through the catalog to check if any bricks are missing from the stock
     int missingTotal = 0;
