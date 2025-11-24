@@ -191,7 +191,7 @@ Brick* loadCatalog(const char *path, int *outSize) {
         catalog[i].color  = hexToRGB(hex);
         parseHoles(holesStr, catalog[i].holes);
 
-        snprintf(catalog[i].name, sizeof(catalog[i].name), "%dx%d/%s", w, h, hex);
+        snprintf(catalog[i].name, sizeof(catalog[i].name), "%d-%d/%s", w, h, hex);
     }
 
     fclose(f);
@@ -243,15 +243,8 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
             totalPrice += catalog[bestId].price;
             totalDiff += bestBrick.diff;
             catalog[bestId].number--;
-            fprintf(tiled, "%s", catalog[bestId].name);
-
-            // only putting spaces between the bricks
-            if (j < width - 1) {
-                fprintf(tiled, " ");
-            }
+            fprintf(tiled, "%s %d %d\n", catalog[bestId].name, j, i);
         }
-        //end of a row
-        fprintf(tiled, "\n");
     }
     // Close the file
     fclose(tiled);
