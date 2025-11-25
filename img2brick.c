@@ -6,6 +6,7 @@
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define NULL_PIXEL ((ColorValues){.r = -1, .g = -1, .b = -1})
+#define MAX_REGION_SIZE 16
 int width;
 int height;
 int catSize;
@@ -52,6 +53,15 @@ typedef struct Node {
 
 
 ///////////////////////////////////UTILS FUNCTIONS//////////////////////////////////////
+
+//a function that returns the closest power of 2 bigger than the argument
+int biggestPow2(int n) {
+    int p = 0;
+    while (pow(2,p) < n) {
+        p++;
+    }
+    return pow(2,p);
+}
 
 // a very needed function that returns the diemsions of the image through pointers
 void getDims(const char* path, int* outWidth, int* outHeight, int*outCanvasDims) {
@@ -124,36 +134,47 @@ int compareColors(ColorValues p1, ColorValues p2) {
          + (p1.b - p2.b) * (p1.b - p2.b);
 }
 
-//a function that returns the closest power of 2 bigger than the argument
-int biggestPow2(int n) {
-    int p = 0;
-    while (pow(2,p) < n) {
-        p++;
-    }
-    return pow(2,p);
-}
-
-ColorValues averageColor(ColorValues* pixels, int regX, int regY, int w, int h){
+void avgAndVar(ColorValues* pixels, int regX, int regY, int regW, int regH, ColorValues* avg, int* var){
 
     ColorValues average = {0, 0, 0};
+    ColorValues variance = {0, 0, 0};
     int count = 0;
 
-    for(int y = regY; y < h; y++){
-        for(int x = regX; x < w; x++){
+    for(int y = regY; y < regY + regH; y++) {
+        for(int x = regX; x < regX + regW; x++) {
 
-            int current = y * w + x;
-            average.r += pixels[current].r;
-            average.g += pixels[current].g;
-            average.b += pixels[current].b;
+            ColorValues p = pixels[y * canvasDims + x];
+
+            if (p.r < 0) continue;
+
+            average.r += p.r;
+            average.g += p.g;
+            average.b += p.b;
+
+            variance.r += p.r * p.r;
+            variance.g += p.g * p.g;
+            variance.b += p.b * p.b;
+
             count++;
         }
     }
-    average.r /= count;
-    average.g /= count;
-    average.b /= count;
+    if (count == 0) {
+        *avg = NULL_PIXEL;
+        *var = 0;
+        return;
+    }
+    avg->r = average.r / count;
+    avg->g = average.g / count;
+    avg->b = average.b / count;
 
-    return average;
+    variance.r = (variance.r/count) - (avg->r * avg->r);
+    variance.g = (variance.g/count) - (avg->g * avg->g);
+    variance.b = (variance.b/count) - (avg->b * avg->b);
+
+    *var = variance.r + variance.g + variance.b;
 }
+
+
 
 Node* new_node(int x, int y, int w, int h, int is_leaf, ColorValues avg) {
     Node* n = malloc(sizeof(Node));
@@ -170,8 +191,14 @@ Node* new_node(int x, int y, int w, int h, int is_leaf, ColorValues avg) {
     return n;
 }
 
-int doWeSplit(ColorValues* pixels, int x, int y, int w, int h, ColorValues avg, int thresh) {
-    // maybe use the average color func instead
+int doWeSplit(ColorValues* pixels, int regX, int regY, int regW, int regH, ColorValues avg, int var, int thresh) {
+
+    if(avg.r < 0) return 0;                     // null region, no split
+    if(var >= thresh) return 1;                 // high variance, split
+    if(regW > MAX_REGION_SIZE) return 1;        // too large, split
+    if(regX + regW > width || regY + regH > height) return 1;  // exceeds image, split
+    return 0;                                   // otherwise, leaf
+
 }
 
 // a function that only serves the purpose of showing the canvas containing the image
@@ -188,6 +215,14 @@ void showCanvas(ColorValues* pixels) {
         }
         printf("\n");
     }
+}
+
+void freeQuadTree(Node* node) {
+    if (!node) return;
+    for(int i = 0; i < 4; i++) {
+        freeQuadTree(node->child[i]);
+    }
+    free(node);
 }
 
 
@@ -295,7 +330,7 @@ Brick* loadCatalog(const char *path, int *outSize) {
 ///////////////////////////////////TILING ALGORYTHMS//////////////////////////////////////
 
 // compares the color of the pixel to the one of every brick and returns the index of the best match
-BestMatch findBestBrick(ColorValues pixel, Brick* catalog, int catSize) {
+BestMatch findBestBrick(ColorValues pixel, Brick* catalog) {
 
     //the necessary infos to get the optimal match from the brick catalog
     int minDiff = compareColors(pixel, catalog[0].color);
@@ -329,7 +364,7 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
     // double for loop that writes in the newly created file, mapping to each pixel the lego brick which's color is closest to its values
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            BestMatch bestBrick = findBestBrick(pixels[i * width + j], catalog, catSize);
+            BestMatch bestBrick = findBestBrick(pixels[i * width + j], catalog);
             int bestId = bestBrick.index;
             totalPrice += catalog[bestId].price;
             totalDiff += bestBrick.diff;
@@ -365,24 +400,30 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
 
 Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh) {
 
-    ColorValues avg = averageColor(pixels, x, y, w, h);
+    ColorValues RegAvg;
+    int RegVar;
+    avgAndVar(pixels, x, y, w, h,&RegAvg, &RegVar);
 
-    if (doWeSplit(pixels, x, y, w, h, avg, thresh)) {
+    if (doWeSplit(pixels, x, y, w, h, RegAvg, RegVar, thresh)) {
 
-        int half_w = w / 2;
-        int half_h = h / 2;
+        int HalfW = w / 2;
+        int HalfH = h / 2;
 
-        Node* node = new_node(x, y, w, h, 0, avg);
+        printf("a new branch was created : x = %d, y = %d, width = %d, height = %d, variance = %d. its average color is [%d,%d,%d]\n", x, y, w, h, RegVar, RegAvg.r, RegAvg.g, RegAvg.b);
+        Node* node = new_node(x, y, w, h, 0, RegAvg);
 
-        node->child[0] = quadTree(pixels, x,        y, half_w, half_h, thresh);
-        node->child[1] = quadTree(pixels, x+half_w, y, half_w, half_h, thresh);
-        node->child[2] = quadTree(pixels, x,        y+half_h, half_w, half_h, thresh);
-        node->child[3] = quadTree(pixels, x+half_w, y+half_h, half_w, half_h, thresh);
+        node->child[0] = quadTree(pixels, x,        y, HalfW, HalfH, thresh);
+        node->child[1] = quadTree(pixels, x+HalfW, y, HalfW, HalfH, thresh);
+        node->child[2] = quadTree(pixels, x,        y+HalfH, HalfW, HalfH, thresh);
+        node->child[3] = quadTree(pixels, x+HalfW, y+HalfH, HalfW, HalfH, thresh);
 
         return node;
     }
-
-    return new_node(x, y, w, h, 1, avg);
+    if (!(RegAvg.r < 0)) {
+        
+    }
+    printf("a new leaf was created : x = %d, y = %d, width = %d, height = %d, variance = %d. its average color is [%d,%d,%d]\n", x, y, w, h, RegVar, RegAvg.r, RegAvg.g, RegAvg.b);
+    return new_node(x, y, w, h, 1, RegAvg);
 }
 
 
@@ -407,14 +448,14 @@ int main() {
     //   1, 1, -1, 000000, 0.10, 100
 
 
-
     // prepare the inputs
     Brick *catalog = loadCatalog("catalog.txt", &catSize);
     getDims("image.txt", &width, &height, &canvasDims);
     ColorValues* img = loadImage("image.txt");
 
     // making the tiling and putting it in a file
-    toBrick_1x1(img, catalog, catSize);
+    Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 28671);
 
+    freeQuadTree(root);
     free(img);
 }
