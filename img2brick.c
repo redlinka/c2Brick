@@ -9,7 +9,7 @@
 int width;
 int height;
 int catSize;
-
+int canvasDims; //canvas size for the padding
 
 
 ///////////////////////////////////STRUCTURES//////////////////////////////////////
@@ -38,11 +38,23 @@ typedef struct {
     int diff;
 } BestMatch;
 
+// crucial for the quadtree, its a chained list element in its fundamentals, but it carries additional infos.
+typedef struct Node {
+    int x; 
+    int y;
+    int w;
+    int h;
+    int is_leaf;
+    ColorValues avg;
+    struct Node* child[4];
+} Node;
+
+
 
 ///////////////////////////////////UTILS FUNCTIONS//////////////////////////////////////
 
 // a very needed function that returns the diemsions of the image through pointers
-void getDims(const char* path, int* outWidth, int* outHeight) {
+void getDims(const char* path, int* outWidth, int* outHeight, int*outCanvasDims) {
     FILE* image = fopen(path, "r");
     if (!image) {
         perror("Error opening file");
@@ -51,6 +63,7 @@ void getDims(const char* path, int* outWidth, int* outHeight) {
 
     int width = 0;
     int height = 0;
+    int canvasDims = 0;
     char hex[7]; // part of the pixel "pattern"
     int firstLineDone = 0; // its used so that we only need to calculate the width once
     int c;
@@ -79,6 +92,7 @@ void getDims(const char* path, int* outWidth, int* outHeight) {
     fclose(image);
     *outWidth = width;
     *outHeight = height;
+    *outCanvasDims = biggestPow2(MAX(width, height));
 }
 
 //turns a hexadecimal value into rgb
@@ -119,7 +133,49 @@ int biggestPow2(int n) {
     return pow(2,p);
 }
 
-void showCanvas(ColorValues* pixels, int canvasDims) {
+ColorValues averageColor(ColorValues* pixels, int regX, int regY, int w, int h){
+
+    ColorValues average = {0, 0, 0};
+    int count = 0;
+
+    for(int y = regY; y < h; y++){
+        for(int x = regX; x < w; x++){
+
+            int current = y * w + x;
+            average.r += pixels[current].r;
+            average.g += pixels[current].g;
+            average.b += pixels[current].b;
+            count++;
+        }
+    }
+    average.r /= count;
+    average.g /= count;
+    average.b /= count;
+
+    return average;
+}
+
+Node* new_node(int x, int y, int w, int h, int is_leaf, ColorValues avg) {
+    Node* n = malloc(sizeof(Node));
+    n->x = x;
+    n->y = y;
+    n->w = w;
+    n->h = h;
+    n->is_leaf = is_leaf;
+    n->avg = avg;
+
+    for (int i = 0; i < 4; i++)
+        n->child[i] = NULL;
+
+    return n;
+}
+
+int doWeSplit(ColorValues* pixels, int x, int y, int w, int h, ColorValues avg, int thresh) {
+    // maybe use the average color func instead
+}
+
+// a function that only serves the purpose of showing the canvas containing the image
+void showCanvas(ColorValues* pixels) {
     for (int y = 0; y < canvasDims; y++) {
         for (int x = 0; x < canvasDims; x++) {
             ColorValues c = pixels[y * canvasDims + x];
@@ -140,7 +196,6 @@ void showCanvas(ColorValues* pixels, int canvasDims) {
 // Converts the string image into a proper ColorValues matrix
 ColorValues* loadImage(const char* path) {
 
-    int canvasDims = biggestPow2(MAX(width, height)); //canvas size for the padding
     char hex[7]; // this is the format of a "pixel" in the initial file
 
     // we open the file
@@ -177,7 +232,7 @@ ColorValues* loadImage(const char* path) {
         }
     }
 
-    //showCanvas(pixels, canvasDims);  //if you wish to visualize the result.
+    showCanvas(pixels);  //if you wish to visualize the result.
 
     // Closing the file and freeing the memory
     free(temp);
@@ -308,6 +363,29 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
 
 }
 
+Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh) {
+
+    ColorValues avg = averageColor(pixels, x, y, w, h);
+
+    if (doWeSplit(pixels, x, y, w, h, avg, thresh)) {
+
+        int half_w = w / 2;
+        int half_h = h / 2;
+
+        Node* node = new_node(x, y, w, h, 0, avg);
+
+        node->child[0] = quadTree(pixels, x,        y, half_w, half_h, thresh);
+        node->child[1] = quadTree(pixels, x+half_w, y, half_w, half_h, thresh);
+        node->child[2] = quadTree(pixels, x,        y+half_h, half_w, half_h, thresh);
+        node->child[3] = quadTree(pixels, x+half_w, y+half_h, half_w, half_h, thresh);
+
+        return node;
+    }
+
+    return new_node(x, y, w, h, 1, avg);
+}
+
+
 /////////////////////// MAIN FUNCTION //////////////////////////
 
 int main() {
@@ -332,7 +410,7 @@ int main() {
 
     // prepare the inputs
     Brick *catalog = loadCatalog("catalog.txt", &catSize);
-    getDims("image.txt", &width, &height);
+    getDims("image.txt", &width, &height, &canvasDims);
     ColorValues* img = loadImage("image.txt");
 
     // making the tiling and putting it in a file
