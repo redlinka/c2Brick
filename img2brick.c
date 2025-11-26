@@ -267,7 +267,7 @@ ColorValues* loadImage(const char* path) {
         }
     }
 
-    showCanvas(pixels);  //if you wish to visualize the result.
+    //showCanvas(pixels);  //if you wish to visualize the result.
 
     // Closing the file and freeing the memory
     free(temp);
@@ -425,7 +425,9 @@ Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh, FILE
     }
     if (!(RegAvg.r < 0)) {
         BestMatch bestBrick = findBestBrick(RegAvg, w, h, catalog);
-        fprintf(outFile, "%s %d %d\n", catalog[bestBrick.index].name, x, y);
+        int bestId = bestBrick.index;
+        catalog[bestId].number--;
+        fprintf(outFile, "%s %d %d\n", catalog[bestId].name, x, y);
     }
     printf("a new leaf was created : x = %d, y = %d, width = %d, height = %d, variance = %d. its average color is [%d,%d,%d]\n", x, y, w, h, RegVar, RegAvg.r, RegAvg.g, RegAvg.b);
     return new_node(x, y, w, h, 1, RegAvg);
@@ -466,6 +468,20 @@ int main() {
     }
 
     Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 28671, outFile, catalog);
+
+    int missingTotal = 0;
+    for (int i = 0; i < catSize; i++) {
+        if (catalog[i].number < 0) {
+            int needed = -catalog[i].number;
+            printf("%s:%d needed ", catalog[i].name, needed);
+            missingTotal += needed;
+        }
+    }
+    // if no bricks are missing
+    if (missingTotal == 0) {
+        printf(" STOCK IS OK");
+    }
+    printf("\n");
 
     fclose(outFile);
     freeQuadTree(root);
