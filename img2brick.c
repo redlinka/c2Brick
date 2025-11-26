@@ -63,48 +63,6 @@ int biggestPow2(int n) {
     return pow(2,p);
 }
 
-// a very needed function that returns the diemsions of the image through pointers
-void getDims(const char* path, int* outWidth, int* outHeight, int*outCanvasDims) {
-    FILE* image = fopen(path, "r");
-    if (!image) {
-        perror("Error opening file");
-        exit(1);
-    }
-
-    int width = 0;
-    int height = 0;
-    int canvasDims = 0;
-    char hex[7]; // part of the pixel "pattern"
-    int firstLineDone = 0; // its used so that we only need to calculate the width once
-    int c;
-
-    while (!firstLineDone && fscanf(image, "%6s", hex) == 1) {
-        width++;
-        c = fgetc(image);
-        if (c == '\n' || c == EOF) {
-            firstLineDone = 1;
-        }
-    }
-
-    rewind(image);
-
-    while ((c = fgetc(image)) != EOF) {
-        if (c == '\n') {
-            height++;
-        }
-    }
-
-    // in the case where the image dims are n * 1
-    if (width > 0 && height == 0) {
-        height = 1;
-    }
-
-    fclose(image);
-    *outWidth = width;
-    *outHeight = height;
-    *outCanvasDims = biggestPow2(MAX(width, height));
-}
-
 //turns a hexadecimal value into rgb
 ColorValues hexToRGB(const char *hex) {
     ColorValues p;
@@ -229,7 +187,7 @@ void freeQuadTree(Node* node) {
 ///////////////////////////////////FORMATTING FUNCTIONS//////////////////////////////////////
 
 // Converts the string image into a proper ColorValues matrix
-ColorValues* loadImage(const char* path) {
+ColorValues* loadImage(const char* path, int* outWidth, int* outHeight, int*outCanvasDims) {
 
     char hex[7]; // this is the format of a "pixel" in the initial file
 
@@ -239,6 +197,16 @@ ColorValues* loadImage(const char* path) {
         perror("Error opening file");
         exit(1);
     }
+
+    // we read the dimensions of the image
+    int w, h;
+    if (fscanf(f, "%d %d\n", &w, &h) != 1) {
+        fprintf(stderr, "Invalid catalog file: missing dimensions\n");
+        exit(1);
+    }
+    *outWidth = w;
+    *outHeight = h;
+    *outCanvasDims = biggestPow2(MAX(width,height));
 
     //we setup the containers of our image
     ColorValues* temp = malloc(width * height * sizeof(ColorValues));
@@ -284,7 +252,7 @@ Brick* loadCatalog(const char *path, int *outSize) {
         exit(1);
     }
 
-    // On lit le nombre de lignes (donc nombre de briques)
+    // read the number of lines
     int n;
     if (fscanf(f, "%d\n", &n) != 1) {
         fprintf(stderr, "Invalid catalog file: missing line count\n");
