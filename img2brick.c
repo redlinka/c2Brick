@@ -467,7 +467,7 @@ int main() {
         return 1;
     }
 
-    Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 28671, outFile, catalog);
+    Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 0, outFile, catalog);
 
     int missingTotal = 0;
     for (int i = 0; i < catSize; i++) {
