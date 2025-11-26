@@ -330,25 +330,29 @@ Brick* loadCatalog(const char *path, int *outSize) {
 ///////////////////////////////////TILING ALGORYTHMS//////////////////////////////////////
 
 // compares the color of the pixel to the one of every brick and returns the index of the best match
-BestMatch findBestBrick(ColorValues pixel, Brick* catalog) {
+BestMatch findBestBrick(ColorValues color, int w, int h, Brick* catalog) {
 
-    //the necessary infos to get the optimal match from the brick catalog
-    int minDiff = compareColors(pixel, catalog[0].color);
-    int minIndex = 0;
+    int minDiff = -1;
+    int minIndex = -1;
 
-    for (int i = 1; i < catSize; i++) {
-        int diff = compareColors(pixel, catalog[i].color);
-        if (diff < minDiff) {
+    for (int i = 0; i < catSize; i++) {
+        Brick current = catalog[i];
+
+        // must match size
+        if (current.width != w || current.height != h) continue;
+        int diff = compareColors(color, current.color);
+        if (minDiff == -1 || diff < minDiff) {
             minDiff = diff;
             minIndex = i;
         }
     }
-    BestMatch bestBrick = {minIndex, minDiff};
-    return bestBrick;
+    BestMatch result = {minIndex, minDiff};
+    return result;
 }
 
 
-void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
+
+void toBrick_1x1(ColorValues* pixels, Brick* catalog) {
 
     // creating the file in which the tiling will be written
     FILE* tiled = fopen("tiled_image.txt", "w");
@@ -364,7 +368,7 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
     // double for loop that writes in the newly created file, mapping to each pixel the lego brick which's color is closest to its values
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            BestMatch bestBrick = findBestBrick(pixels[i * width + j], catalog);
+            BestMatch bestBrick = findBestBrick(pixels[i * width + j], 1, 1, catalog);
             int bestId = bestBrick.index;
             totalPrice += catalog[bestId].price;
             totalDiff += bestBrick.diff;
@@ -398,7 +402,7 @@ void toBrick_1x1(ColorValues* pixels, Brick* catalog, int catSize) {
 
 }
 
-Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh) {
+Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh, FILE* outFile, Brick* catalog) {
 
     ColorValues RegAvg;
     int RegVar;
@@ -412,15 +416,16 @@ Node* quadTree(ColorValues* pixels, int x, int y, int w, int h, int thresh) {
         printf("a new branch was created : x = %d, y = %d, width = %d, height = %d, variance = %d. its average color is [%d,%d,%d]\n", x, y, w, h, RegVar, RegAvg.r, RegAvg.g, RegAvg.b);
         Node* node = new_node(x, y, w, h, 0, RegAvg);
 
-        node->child[0] = quadTree(pixels, x,        y, HalfW, HalfH, thresh);
-        node->child[1] = quadTree(pixels, x+HalfW, y, HalfW, HalfH, thresh);
-        node->child[2] = quadTree(pixels, x,        y+HalfH, HalfW, HalfH, thresh);
-        node->child[3] = quadTree(pixels, x+HalfW, y+HalfH, HalfW, HalfH, thresh);
+        node->child[0] = quadTree(pixels, x,       y, HalfW, HalfH, thresh, outFile, catalog);
+        node->child[1] = quadTree(pixels, x+HalfW, y, HalfW, HalfH, thresh, outFile, catalog);
+        node->child[2] = quadTree(pixels, x,       y+HalfH, HalfW, HalfH, thresh, outFile, catalog);
+        node->child[3] = quadTree(pixels, x+HalfW, y+HalfH, HalfW, HalfH, thresh, outFile, catalog);
 
         return node;
     }
     if (!(RegAvg.r < 0)) {
-        
+        BestMatch bestBrick = findBestBrick(RegAvg, w, h, catalog);
+        fprintf(outFile, "%s %d %d\n", catalog[bestBrick.index].name, x, y);
     }
     printf("a new leaf was created : x = %d, y = %d, width = %d, height = %d, variance = %d. its average color is [%d,%d,%d]\n", x, y, w, h, RegVar, RegAvg.r, RegAvg.g, RegAvg.b);
     return new_node(x, y, w, h, 1, RegAvg);
@@ -454,8 +459,15 @@ int main() {
     ColorValues* img = loadImage("image.txt");
 
     // making the tiling and putting it in a file
-    Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 28671);
+    FILE* outFile = fopen("tiled_quadtree_image.txt", "w");
+    if (!outFile) {
+        perror("Failed to open file");
+        return 1;
+    }
 
+    Node* root = quadTree(img, 0, 0, canvasDims, canvasDims, 28671, outFile, catalog);
+
+    fclose(outFile);
     freeQuadTree(root);
     free(img);
 }
