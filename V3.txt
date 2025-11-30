@@ -1,0 +1,46 @@
+﻿V3 Lego Tiling
+
+
+Objective :
+
+The goal of Version 3 is to generate an optimized tiling that balances fidelity (image detail)
+with construction cost (number of bricks). Unlike the basic V1 approach (1 pixel = 1 brick),
+this version uses larger bricks (up to 16x16) for uniform color regions.
+
+
+The threshold determines both the quality and the price of the final result. A maximal threshold 
+on any image will always result in the utmost cost efficient tiling possible as long as the image 
+dimension is a multiple of 16.
+
+
+A good balance can be found between the initial image quality and dimensions and the threshold.
+
+
+Method: Quadtree Algorithm
+The algorithm recursively decomposes the image:
+
+
+1. The algorithm needs a square image, so we create a canvas which’s dimensions are equal to the 
+smallest power of 2 that is bigger than the input image.
+
+2. We put the image on the top left corner of the canvas.
+
+3. The algorithm considers a region of the image (starting with the full image in the canvas).
+
+4. It calculates the "variance" of the colors within this region.
+
+5. If the variance exceeds a defined threshold, if the currently analyzed region is fully empty (canvas), 
+
+or if the region is larger than the maximum available brick size (16x16), the region is split into 
+4 equal sub-regions (North-West, North-East, South-West, South-East).
+
+6. This process repeats recursively.
+
+7. If the variance is low (uniform area), the division stops (leaf node), and the algorithm 
+searches the catalog for the brick whose average color best matches the region's average.
+Stock Management:
+
+The algorithm takes a catalog containing available stock as input. For each brick placed, the stock is 
+decremented in memory. If a brick brick stock is negative, it means we need to order more, the brick as 
+well as the number of units we need to order are added to an order request file that is sent with the tilings,
+if the file is empty, then the stock is OK and no bricks need to be ordered.

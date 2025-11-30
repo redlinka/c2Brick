@@ -30,7 +30,7 @@ for line in lines:
     w, h = map(int, dims.split('-'))
     
     # Draw rectangle
-    rect = patches.Rectangle((x, y), w, h, linewidth=1, facecolor='#' + color)
+    rect = patches.Rectangle((x, y), w, h, linewidth=1, facecolor='#' + color, edgecolor=(0, 0, 0, 0.5))
     ax.add_patch(rect)
     
     max_x = max(max_x, x + w)

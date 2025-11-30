@@ -261,7 +261,7 @@ void free_QUADTREE(Node* node) {
 /* Writes a complete invoice based on the missing bricks in a given catalog into a CSV file
  * Input: Catalog to analyze and the name of the file we'll write the invoice in.
  * Output: Void. invoice file created.*/
-void make_invoice(Catalog catalog, const char* name) {
+void make_order_file(Catalog catalog, const char* name) {
     FILE* f = fopen(name, "w");
     if (!f) {
         perror("Unable to create the invoice");
@@ -607,20 +607,22 @@ int main(int argc, char *argv[]) {
     printf("Loading Image: %s\nLoading Catalog: %s\nThreshold: %d\n", imagePath, catalogPath, threshold);
     Catalog catQuad = load_catalog(catalogPath);
     Catalog cat1x1 = load_catalog(catalogPath);
-    Image img = load_image("image.txt");
+    printf("catalogs loaded\n");
+    Image img = load_image(imagePath);
+    printf("image loaded\n");
     
     // tiling phase
     printf("Generating Tilings...\n");
 
     //////////QUADTREE ALGORYTHM////////////
 
-    Node* root = tobrick_QUADTREE(img, catQuad, "tiled_quadtree_image.txt", 1000);
-    make_invoice(catQuad, "invoice_quadtree.txt");
+    Node* root = tobrick_QUADTREE(img, catQuad, "tiled_quadtree_image.txt", threshold);
+    make_order_file(catQuad, "order_quadtree.txt");
 
     //////////1x1 ALGORYTHM/////////////////
 
     toBrick_1x1(img, cat1x1, "tiled_1x1_image");
-    make_invoice(cat1x1, "invoice_1x1.txt");
+    make_order_file(cat1x1, "order_1x1.txt");
 
 
     //////////FREE AFTER USE/////////////////
