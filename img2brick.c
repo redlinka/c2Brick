@@ -578,66 +578,80 @@ Node* tobrick_QUADTREE(Image img, Catalog catalog, const char* name, int thresho
 
 int main(int argc, char *argv[]) {
 
-    // image.txt is in the format :
-    //   3 3 (image dimensions)
-    //   FFFFFF FFFFFF FFFFFF\n
-    //   FFFFFF FFFFFF FFFFFF\n
-    //   FFFFFF FFFFFF FFFFFF\n
+    // Args:
+    // 0: Program Name
+    // 1: Input Hex File
+    // 2: Catalog File
+    // 3: Output File (The destination for the brick list)
+    // 4: Method ("quadtree" or "1x1")
+    // 5: Threshold (Optional, only for quadtree)
 
-    // catalog.txt is in the format :
-
-    //   6 (number of lines)
-    //   1, 1, -1, ff0000, 0.10, 100
-    //   1, 1, -1, 00ff00, 0.10, 100
-    //   1, 1, -1, 0000ff, 0.10, 100
-    //   1, 4, 0832, ffff00, 0.10, 100
-    //   1, 1, -1, ffffff, 0.10, 100
-    //   16, 16, -1, 00ab00, 0.10, 100
-
-    //check the args
-    if (argc != 4) {
-        fprintf(stderr, "How to use: %s <image_file> <catalog_file> <threshold>\n", argv[0]);
+    // 1. Basic Argument Validation
+    if (argc < 5) {
+        fprintf(stderr, "Usage: %s <input_file> <catalog_file> <output_file> <method> [threshold]\n", argv[0]);
         exit(1);
     }
 
     const char* imagePath = argv[1]; 
     const char* catalogPath = argv[2];
-    int threshold = atoi(argv[3]);
+    const char* outputPath = argv[3];
+    const char* method = argv[4];
 
-    // prepare the inputs
-    printf("Loading Image: %s\nLoading Catalog: %s\nThreshold: %d\n", imagePath, catalogPath, threshold);
-    Catalog catQuad = load_catalog(catalogPath);
-    Catalog cat1x1 = load_catalog(catalogPath);
-    printf("catalogs loaded\n");
-    Image img = load_image(imagePath);
-    printf("image loaded\n");
+    // 2. Load Resources (We only need to load them once now)
+    printf("Loading Image: %s\nLoading Catalog: %s\n", imagePath, catalogPath);
     
-    // tiling phase
-    printf("Generating Tilings...\n");
+    Image img = load_image(imagePath);
+    Catalog cat = load_catalog(catalogPath);
+    
+    printf("Resources loaded.\n");
 
-    //////////QUADTREE ALGORYTHM////////////
+    // 3. Switch Method
+    if (strcmp(method, "quadtree") == 0) {
+        
+        // Quadtree MUST have a threshold
+        if (argc != 6) {
+            fprintf(stderr, "Error: 'quadtree' method requires a threshold argument.\nUsage: %s ... quadtree <threshold>\n", argv[0]);
+            free(img.pixels);
+            free(cat.bricks);
+            exit(1);
+        }
 
-    double startTime = (double) clock()/CLOCKS_PER_SEC;
+        int threshold = atoi(argv[5]);
+        printf("Method: Quadtree | Threshold: %d\ngenerating...\n", threshold);
 
-    Node* root = tobrick_QUADTREE(img, catQuad, "tiled_quadtree_image.txt", threshold);
-    make_order_file(catQuad, "order_quadtree.txt");
+        // Run Quadtree (Pass the output path directly)
+        Node* root = tobrick_QUADTREE(img, cat, outputPath, threshold);
+        
+        // Cleanup Quadtree specific memory
+        free_QUADTREE(root);
 
-    double endTime = (double) clock()/CLOCKS_PER_SEC;
+    } else if (strcmp(method, "1x1") == 0) {
 
-    printf("%lf", endTime - startTime);
+        // 1x1 MUST NOT have extra arguments
+        if (argc != 5) {
+            fprintf(stderr, "Error: '1x1' method does not accept a threshold argument.\nUsage: %s ... 1x1\n", argv[0]);
+            free(img.pixels);
+            free(cat.bricks);
+            exit(1);
+        }
 
-    //////////1x1 ALGORYTHM/////////////////
+        printf("Method: 1x1 | Precision: Pixel Perfect\ngenerating...\n");
 
-    toBrick_1x1(img, cat1x1, "tiled_1x1_image.txt");
-    make_order_file(cat1x1, "order_1x1.txt");
+        // Run 1x1 (Pass the output path directly)
+        toBrick_1x1(img, cat, outputPath);
 
+    } else {
+        fprintf(stderr, "Error: Unknown method '%s'. Please use 'quadtree' or '1x1'.\n", method);
+        free(img.pixels);
+        free(cat.bricks);
+        exit(1);
+    }
 
-    //////////FREE AFTER USE/////////////////
-
-    free_QUADTREE(root);
+    // 4. Global Cleanup
     free(img.pixels);
-    free(catQuad.bricks);
-    free(cat1x1.bricks);
+    free(cat.bricks);
+    
+    printf("Done. Saved to %s\n", outputPath);
 
     return 0;
 }
