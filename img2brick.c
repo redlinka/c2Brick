@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -616,12 +617,18 @@ int main(int argc, char *argv[]) {
 
     //////////QUADTREE ALGORYTHM////////////
 
+    double startTime = (double) clock()/CLOCKS_PER_SEC;
+
     Node* root = tobrick_QUADTREE(img, catQuad, "tiled_quadtree_image.txt", threshold);
     make_order_file(catQuad, "order_quadtree.txt");
 
+    double endTime = (double) clock()/CLOCKS_PER_SEC;
+
+    printf("%lf", endTime - startTime);
+
     //////////1x1 ALGORYTHM/////////////////
 
-    toBrick_1x1(img, cat1x1, "tiled_1x1_image");
+    toBrick_1x1(img, cat1x1, "tiled_1x1_image.txt");
     make_order_file(cat1x1, "order_1x1.txt");
 
 
